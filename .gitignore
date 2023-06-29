@@ -1,3 +1,9 @@
+# local files/directories
+/*
+
+# allow directory for static website generator output
+!/_site/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

